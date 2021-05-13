@@ -107,12 +107,12 @@ public:
             triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
             triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
 
-            triProjected.p[0].x += 0.5f * (float)ScreenWidth();
-            triProjected.p[0].y += 0.5f * (float)ScreenWidth();
-            triProjected.p[1].x += 0.5f * (float)ScreenWidth();
-            triProjected.p[1].y += 0.5f * (float)ScreenWidth();
-            triProjected.p[2].x += 0.5f * (float)ScreenWidth();
-            triProjected.p[2].y += 0.5f * (float)ScreenWidth();
+            triProjected.p[0].x *= 0.5f * (float)ScreenWidth();
+            triProjected.p[0].y *= 0.5f * (float)ScreenWidth();
+            triProjected.p[1].x *= 0.5f * (float)ScreenWidth();
+            triProjected.p[1].y *= 0.5f * (float)ScreenWidth();
+            triProjected.p[2].x *= 0.5f * (float)ScreenWidth();
+            triProjected.p[2].y *= 0.5f * (float)ScreenWidth();
 
 
             DrawTriangle(triProjected.p[0].x, triProjected.p[0].y,
