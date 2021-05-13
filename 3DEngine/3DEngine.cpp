@@ -21,6 +21,7 @@ class olcEngine3D : public olcConsoleGameEngine {
 private: 
     Mesh meshCube;
     Mat4x4 matProj;
+    float fTheta;
 
     void multiplyMatrixVector(Vec3d &i, Vec3d &o, Mat4x4 &m) {
         o.x = i.x * m.m[0][0] + i.y * m.m[1][0] + i.z * m.m[2][0] + m.m[3][0];
@@ -90,13 +91,43 @@ public:
     bool OnUserUpdate(float fElapsedTime) override {
         Fill(0, 0, ScreenWidth(), ScreenHeight(), PIXEL_SOLID, FG_BLACK);
 
+        Mat4x4 matRotX, matRotZ;
+        fTheta += 1.0f * fElapsedTime;
+
+        //Rotation X
+        matRotX.m[0][0] = 1;
+        matRotX.m[1][1] = cosf(fTheta * 0.5);
+        matRotX.m[1][2] = sinf(fTheta * 0.5);
+        matRotX.m[2][1] = -sinf(fTheta * 0.5);
+        matRotX.m[2][2] = cosf(fTheta * 0.5);
+        matRotX.m[3][3] = 1;
+
+        //Rotation Z
+        matRotZ.m[0][0] = cosf(fTheta);
+        matRotZ.m[0][1] = sinf(fTheta);
+        matRotZ.m[1][0] = -sinf(fTheta);
+        matRotZ.m[1][1] = cosf(fTheta);
+        matRotZ.m[2][2] = 1;
+        matRotZ.m[3][3] = 1;
+
         //Draw Triangles
         for (auto tri : meshCube.tris) {
-            Triangle triProjected, triTranslated;
-            triTranslated = tri;
-            triTranslated.p[0].z = tri.p[0].z + 3.0f;
-            triTranslated.p[1].z = tri.p[0].z + 3.0f;
-            triTranslated.p[2].z = tri.p[0].z + 3.0f;
+            Triangle triProjected, triTranslated, triRotatedX, triRotatedXZ;
+
+            //Rotating
+            multiplyMatrixVector(tri.p[0], triRotatedX.p[0], matRotX);
+            multiplyMatrixVector(tri.p[1], triRotatedX.p[1], matRotX);
+            multiplyMatrixVector(tri.p[2], triRotatedX.p[2], matRotX); 
+            
+            multiplyMatrixVector(triRotatedX.p[0], triRotatedXZ.p[0], matRotZ);
+            multiplyMatrixVector(triRotatedX.p[1], triRotatedXZ.p[1], matRotZ);
+            multiplyMatrixVector(triRotatedX.p[2], triRotatedXZ.p[2], matRotZ);
+
+            //Translating
+            triTranslated = triRotatedXZ;
+            triTranslated.p[0].z = triRotatedXZ.p[0].z + 3.0f;
+            triTranslated.p[1].z = triRotatedXZ.p[1].z + 3.0f;
+            triTranslated.p[2].z = triRotatedXZ.p[2].z + 3.0f;
 
             multiplyMatrixVector(triTranslated.p[0], triProjected.p[0], matProj);
             multiplyMatrixVector(triTranslated.p[1], triProjected.p[1], matProj);
