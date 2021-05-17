@@ -6,6 +6,8 @@ struct Vec3d {
 
 struct Triangle {
     Vec3d p[3];
+    wchar_t sym;
+    short col;
 };
 
 struct Mesh {
@@ -17,10 +19,14 @@ struct Mat4x4 {
 };
 
 
+
 class olcEngine3D : public olcConsoleGameEngine {
 private: 
     Mesh meshCube;
     Mat4x4 matProj;
+
+    Vec3d vCamera;   
+
     float fTheta;
 
     void multiplyMatrixVector(Vec3d &i, Vec3d &o, Mat4x4 &m) {
@@ -32,7 +38,7 @@ private:
         if (w != 0) {
             o.x /= w;
             o.y /= w;
-            o.z/= w;
+            //o.z/= w;
         }
     }
 
@@ -46,8 +52,8 @@ public:
         meshCube.tris = {
             //SOUTH
             {0.0f, 0.0f, 0.0f,          0.0f, 1.0f, 0.0f,           1.0f, 1.0f, 0.0f},
-            {0.0f, 0.0f, 0.0f,          1.0f, 1.0f, 0.0f,           1.0f, 0.0f, 0.0f}, 
-            
+            {0.0f, 0.0f, 0.0f,          1.0f, 1.0f, 0.0f,           1.0f, 0.0f, 0.0f},
+
             //EAST
             {1.0f, 0.0f, 0.0f,          1.0f, 1.0f, 0.0f,           1.0f, 1.0f, 1.0f},
             {1.0f, 0.0f, 0.0f,          1.0f, 1.0f, 1.0f,           1.0f, 0.0f, 1.0f},
@@ -112,44 +118,85 @@ public:
 
         //Draw Triangles
         for (auto tri : meshCube.tris) {
-            Triangle triProjected, triTranslated, triRotatedX, triRotatedXZ;
+            Triangle triProjected, triTranslated, triRotatedZ, triRotatedZX;
 
             //Rotating
-            multiplyMatrixVector(tri.p[0], triRotatedX.p[0], matRotX);
-            multiplyMatrixVector(tri.p[1], triRotatedX.p[1], matRotX);
-            multiplyMatrixVector(tri.p[2], triRotatedX.p[2], matRotX); 
-            
-            multiplyMatrixVector(triRotatedX.p[0], triRotatedXZ.p[0], matRotZ);
-            multiplyMatrixVector(triRotatedX.p[1], triRotatedXZ.p[1], matRotZ);
-            multiplyMatrixVector(triRotatedX.p[2], triRotatedXZ.p[2], matRotZ);
+            multiplyMatrixVector(tri.p[0], triRotatedZ.p[0], matRotZ);
+            multiplyMatrixVector(tri.p[1], triRotatedZ.p[1], matRotZ);
+            multiplyMatrixVector(tri.p[2], triRotatedZ.p[2], matRotZ);
+
+            multiplyMatrixVector(triRotatedZ.p[0], triRotatedZX.p[0], matRotX);
+            multiplyMatrixVector(triRotatedZ.p[1], triRotatedZX.p[1], matRotX);
+            multiplyMatrixVector(triRotatedZ.p[2], triRotatedZX.p[2], matRotX);
 
             //Translating
-            triTranslated = triRotatedXZ;
-            triTranslated.p[0].z = triRotatedXZ.p[0].z + 3.0f;
-            triTranslated.p[1].z = triRotatedXZ.p[1].z + 3.0f;
-            triTranslated.p[2].z = triRotatedXZ.p[2].z + 3.0f;
+            triTranslated = triRotatedZX;
+            triTranslated.p[0].z = triRotatedZX.p[0].z + 3.0f;
+            triTranslated.p[1].z = triRotatedZX.p[1].z + 3.0f;
+            triTranslated.p[2].z = triRotatedZX.p[2].z + 3.0f;
 
-            multiplyMatrixVector(triTranslated.p[0], triProjected.p[0], matProj);
-            multiplyMatrixVector(triTranslated.p[1], triProjected.p[1], matProj);
-            multiplyMatrixVector(triTranslated.p[2], triProjected.p[2], matProj);
+            //Normal Calculations
+            Vec3d normal, line1, line2;
+            line1.x = triTranslated.p[1].x - triTranslated.p[0].x;
+            line1.y = triTranslated.p[1].y - triTranslated.p[0].y;
+            line1.z = triTranslated.p[1].z - triTranslated.p[0].z;
 
-            //Scale into view
-            triProjected.p[0].x += 1.0f; triProjected.p[0].y += 1.0f;
-            triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
-            triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
+            line2.x = triTranslated.p[2].x - triTranslated.p[0].x;
+            line2.y = triTranslated.p[2].y - triTranslated.p[0].y;
+            line2.z = triTranslated.p[2].z - triTranslated.p[0].z;
 
-            triProjected.p[0].x *= 0.5f * (float)ScreenWidth();
-            triProjected.p[0].y *= 0.5f * (float)ScreenWidth();
-            triProjected.p[1].x *= 0.5f * (float)ScreenWidth();
-            triProjected.p[1].y *= 0.5f * (float)ScreenWidth();
-            triProjected.p[2].x *= 0.5f * (float)ScreenWidth();
-            triProjected.p[2].y *= 0.5f * (float)ScreenWidth();
+            normal.x = line1.y * line2.z - line1.z * line2.y;
+            normal.y = line1.z * line2.x - line1.x * line2.z;
+            normal.z = line1.x * line2.y - line1.y * line2.x;
+
+            float magnitude = sqrtf(
+                normal.x * normal.x +
+                normal.y * normal.y +
+                normal.z * normal.z);
+
+            normal.x /= magnitude;
+            normal.y /= magnitude;
+            normal.z /= magnitude;
+
+            if (normal.x * (triTranslated.p[0].x - vCamera.x) +
+                normal.y * (triTranslated.p[0].y - vCamera.y) +
+                normal.z * (triTranslated.p[0].z - vCamera.z) < 0.0f)
+            {   
+                //Illumination
+                Vec3d light_direction = { 0.0f, 0.0f, -0.1f };
+                float magnitude = sqrtf(
+                    light_direction.x * light_direction.x +
+                    light_direction.y * light_direction.y +
+                    light_direction.z * light_direction.z
+                );
+
+                light_direction.x /= magnitude;
+                light_direction.y /= magnitude; 
+                light_direction.z /= magnitude;
+
+                //3D to 2D
+                multiplyMatrixVector(triTranslated.p[0], triProjected.p[0], matProj);
+                multiplyMatrixVector(triTranslated.p[1], triProjected.p[1], matProj);
+                multiplyMatrixVector(triTranslated.p[2], triProjected.p[2], matProj);
+
+                //Scale into view
+                triProjected.p[0].x += 1.0f; triProjected.p[0].y += 1.0f;
+                triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
+                triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
+
+                triProjected.p[0].x *= 0.5f * (float)ScreenWidth();
+                triProjected.p[0].y *= 0.5f * (float)ScreenWidth();
+                triProjected.p[1].x *= 0.5f * (float)ScreenWidth();
+                triProjected.p[1].y *= 0.5f * (float)ScreenWidth();
+                triProjected.p[2].x *= 0.5f * (float)ScreenWidth();
+                triProjected.p[2].y *= 0.5f * (float)ScreenWidth();
 
 
-            DrawTriangle(triProjected.p[0].x, triProjected.p[0].y,
-                triProjected.p[1].x, triProjected.p[1].y,
-                triProjected.p[2].x, triProjected.p[2].y,
-                PIXEL_SOLID, FG_WHITE);
+                FillTriangle(triProjected.p[0].x, triProjected.p[0].y,
+                    triProjected.p[1].x, triProjected.p[1].y,
+                    triProjected.p[2].x, triProjected.p[2].y,
+                    PIXEL_SOLID, FG_WHITE);
+            }
         }
 
         return true;
