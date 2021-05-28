@@ -1,4 +1,7 @@
 #include "olcConsoleGameEngine.h"
+#include <fstream>
+#include <strstream>
+#include <algorithm>
 
 struct Vec3d {
     float x, y, z;
@@ -12,6 +15,41 @@ struct Triangle {
 
 struct Mesh {
     std::vector<Triangle> tris;
+    
+    bool loadFromObjectFile(std::string sFileName) {
+        std::ifstream f(sFileName);
+        if (!f.is_open())
+            return false;
+           
+        //local cache of verts
+        std::vector<Vec3d> verts;
+
+        while (!f.eof()) {
+            char line[128];
+            f.getline(line, 128);
+            Vec3d v;
+            char junk;
+
+            std::strstream s;
+            s << line;
+
+            if (line[0] == 'v') {
+                s >> junk >> v.x >> v.y >> v.z;
+                verts.push_back(v);
+            }
+
+            if(line[0]=='f'){
+                int f[3];
+                s >> junk >> f[0] >> f[1] >> f[2];
+                tris.push_back({ verts[f[0] - 1], verts[f[1] - 1], verts[f[2] - 1] });
+                
+             
+            }
+        }
+
+        f.close();
+        return true;
+    }
 };
 
 struct Mat4x4 {
@@ -82,32 +120,34 @@ public:
 
 public:
     bool OnUserCreate() override{
-        meshCube.tris = {
-            //SOUTH
-            {0.0f, 0.0f, 0.0f,          0.0f, 1.0f, 0.0f,           1.0f, 1.0f, 0.0f},
-            {0.0f, 0.0f, 0.0f,          1.0f, 1.0f, 0.0f,           1.0f, 0.0f, 0.0f},
+        //meshCube.tris = {
+        //    //SOUTH
+        //    {0.0f, 0.0f, 0.0f,          0.0f, 1.0f, 0.0f,           1.0f, 1.0f, 0.0f},
+        //    {0.0f, 0.0f, 0.0f,          1.0f, 1.0f, 0.0f,           1.0f, 0.0f, 0.0f},
 
-            //EAST
-            {1.0f, 0.0f, 0.0f,          1.0f, 1.0f, 0.0f,           1.0f, 1.0f, 1.0f},
-            {1.0f, 0.0f, 0.0f,          1.0f, 1.0f, 1.0f,           1.0f, 0.0f, 1.0f},
+        //    //EAST
+        //    {1.0f, 0.0f, 0.0f,          1.0f, 1.0f, 0.0f,           1.0f, 1.0f, 1.0f},
+        //    {1.0f, 0.0f, 0.0f,          1.0f, 1.0f, 1.0f,           1.0f, 0.0f, 1.0f},
 
-            //NORTH
-            {1.0f, 0.0f, 1.0f,          1.0f, 1.0f, 1.0f,           0.0f, 1.0f, 1.0f},
-            {1.0f, 0.0f, 1.0f,          0.0f, 1.0f, 1.0f,           0.0f, 0.0f, 1.0f},
+        //    //NORTH
+        //    {1.0f, 0.0f, 1.0f,          1.0f, 1.0f, 1.0f,           0.0f, 1.0f, 1.0f},
+        //    {1.0f, 0.0f, 1.0f,          0.0f, 1.0f, 1.0f,           0.0f, 0.0f, 1.0f},
 
-            //WEST
-            {0.0f, 0.0f, 1.0f,          0.0f, 1.0f, 1.0f,           0.0f, 1.0f, 0.0f},
-            {0.0f, 0.0f, 1.0f,          0.0f, 1.0f, 0.0f,           0.0f, 0.0f, 0.0f},
+        //    //WEST
+        //    {0.0f, 0.0f, 1.0f,          0.0f, 1.0f, 1.0f,           0.0f, 1.0f, 0.0f},
+        //    {0.0f, 0.0f, 1.0f,          0.0f, 1.0f, 0.0f,           0.0f, 0.0f, 0.0f},
 
-            //TOP
-            {0.0f, 1.0f, 0.0f,          0.0f, 1.0f, 1.0f,           1.0f, 1.0f, 1.0f},
-            {0.0f, 1.0f, 0.0f,          1.0f, 1.0f, 1.0f,           1.0f, 1.0f, 0.0f},
+        //    //TOP
+        //    {0.0f, 1.0f, 0.0f,          0.0f, 1.0f, 1.0f,           1.0f, 1.0f, 1.0f},
+        //    {0.0f, 1.0f, 0.0f,          1.0f, 1.0f, 1.0f,           1.0f, 1.0f, 0.0f},
 
-            //BOTTOM
-            {1.0f, 0.0f, 1.0f,          0.0f, 0.0f, 1.0f,           0.0f, 0.0f, 0.0f},
-            {1.0f, 0.0f, 1.0f,          0.0f, 0.0f, 0.0f,           1.0f, 0.0f, 0.0f},
-            
-        };
+        //    //BOTTOM
+        //    {1.0f, 0.0f, 1.0f,          0.0f, 0.0f, 1.0f,           0.0f, 0.0f, 0.0f},
+        //    {1.0f, 0.0f, 1.0f,          0.0f, 0.0f, 0.0f,           1.0f, 0.0f, 0.0f}
+
+        //};
+
+        meshCube.loadFromObjectFile("ship.txt");
 
         //Projection Matrix
         float fNear = 0.1f;
@@ -149,6 +189,9 @@ public:
         matRotZ.m[2][2] = 1;
         matRotZ.m[3][3] = 1;
 
+
+        std::vector<Triangle> trianglesToRaster;
+
         //Draw Triangles
         for (auto tri : meshCube.tris) {
             Triangle triProjected, triTranslated, triRotatedZ, triRotatedZX;
@@ -164,9 +207,9 @@ public:
 
             //Translating
             triTranslated = triRotatedZX;
-            triTranslated.p[0].z = triRotatedZX.p[0].z + 3.0f;
-            triTranslated.p[1].z = triRotatedZX.p[1].z + 3.0f;
-            triTranslated.p[2].z = triRotatedZX.p[2].z + 3.0f;
+            triTranslated.p[0].z = triRotatedZX.p[0].z + 8.0f;
+            triTranslated.p[1].z = triRotatedZX.p[1].z + 8.0f;
+            triTranslated.p[2].z = triRotatedZX.p[2].z + 8.0f;
 
             //Normal Calculations
             Vec3d normal, line1, line2;
@@ -234,20 +277,31 @@ public:
                 triProjected.p[2].x *= 0.5f * (float)ScreenWidth();
                 triProjected.p[2].y *= 0.5f * (float)ScreenWidth();
 
-
-                FillTriangle(triProjected.p[0].x, triProjected.p[0].y,
-                    triProjected.p[1].x, triProjected.p[1].y,
-                    triProjected.p[2].x, triProjected.p[2].y,
-                    triProjected.sym, triProjected.col);
-
-                  /*  DrawTriangle(triProjected.p[0].x, triProjected.p[0].y,
-                        triProjected.p[1].x, triProjected.p[1].y,
-                        triProjected.p[2].x, triProjected.p[2].y,
-                        PIXEL_SOLID, FG_BLACK);*/
-
+                trianglesToRaster.push_back(triProjected);
+              
             }
         }
+        sort(trianglesToRaster.begin(), trianglesToRaster.end(), 
+            [](Triangle &t1, Triangle &t2){
 
+                float z1 = (t1.p[0].z + t1.p[1].z + t1.p[2].z) / 3.0f;
+                float z2 = (t2.p[0].z + t2.p[1].z + t2.p[2].z) / 3.0f;
+                return z1 > z2;
+                    
+            });
+
+        for (auto triProjected : trianglesToRaster) {
+            FillTriangle(triProjected.p[0].x, triProjected.p[0].y,
+                triProjected.p[1].x, triProjected.p[1].y,
+                triProjected.p[2].x, triProjected.p[2].y,
+                triProjected.sym, triProjected.col);
+
+            /*DrawTriangle(triProjected.p[0].x, triProjected.p[0].y,
+                triProjected.p[1].x, triProjected.p[1].y,
+                triProjected.p[2].x, triProjected.p[2].y,
+                PIXEL_SOLID, FG_BLACK);*/
+
+        }
         return true;
     }
 };
