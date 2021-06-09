@@ -66,9 +66,12 @@ private:
     Mesh meshCube;
     Mat4x4 matProj;
 
-    Vec3d vCamera;   
+    Vec3d vCamera;
+    Vec3d vLookDir;
 
     float fTheta;
+    float fYaw;
+
     Vec3d Vector_Add(Vec3d& v1, Vec3d& v2)
     {
         return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
@@ -205,6 +208,43 @@ private:
         return matrix;
     }
 
+    Mat4x4 Matrix_PointAt(Vec3d& pos, Vec3d& target, Vec3d& up)
+    {
+        // Calculate new forward direction
+        Vec3d newForward = Vector_Sub(target, pos);
+        newForward = Vector_Normalise(newForward);
+
+        // Calculate new Up direction
+        Vec3d a = Vector_Mul(newForward, Vector_DotProduct(up, newForward));
+        Vec3d newUp = Vector_Sub(up, a);
+        newUp = Vector_Normalise(newUp);
+
+        // New Right direction is easy, its just cross product
+        Vec3d newRight = Vector_CrossProduct(newUp, newForward);
+
+        // Construct Dimensioning and Translation Matrix	
+        Mat4x4 matrix;
+        matrix.m[0][0] = newRight.x;	matrix.m[0][1] = newRight.y;	matrix.m[0][2] = newRight.z;	matrix.m[0][3] = 0.0f;
+        matrix.m[1][0] = newUp.x;		matrix.m[1][1] = newUp.y;		matrix.m[1][2] = newUp.z;		matrix.m[1][3] = 0.0f;
+        matrix.m[2][0] = newForward.x;	matrix.m[2][1] = newForward.y;	matrix.m[2][2] = newForward.z;	matrix.m[2][3] = 0.0f;
+        matrix.m[3][0] = pos.x;			matrix.m[3][1] = pos.y;			matrix.m[3][2] = pos.z;			matrix.m[3][3] = 1.0f;
+        return matrix;
+
+    }
+
+    Mat4x4 Matrix_QuickInverse(Mat4x4& m) // Only for Rotation/Translation Matrices
+    {
+        Mat4x4 matrix;
+        matrix.m[0][0] = m.m[0][0]; matrix.m[0][1] = m.m[1][0]; matrix.m[0][2] = m.m[2][0]; matrix.m[0][3] = 0.0f;
+        matrix.m[1][0] = m.m[0][1]; matrix.m[1][1] = m.m[1][1]; matrix.m[1][2] = m.m[2][1]; matrix.m[1][3] = 0.0f;
+        matrix.m[2][0] = m.m[0][2]; matrix.m[2][1] = m.m[1][2]; matrix.m[2][2] = m.m[2][2]; matrix.m[2][3] = 0.0f;
+        matrix.m[3][0] = -(m.m[3][0] * matrix.m[0][0] + m.m[3][1] * matrix.m[1][0] + m.m[3][2] * matrix.m[2][0]);
+        matrix.m[3][1] = -(m.m[3][0] * matrix.m[0][1] + m.m[3][1] * matrix.m[1][1] + m.m[3][2] * matrix.m[2][1]);
+        matrix.m[3][2] = -(m.m[3][0] * matrix.m[0][2] + m.m[3][1] * matrix.m[1][2] + m.m[3][2] * matrix.m[2][2]);
+        matrix.m[3][3] = 1.0f;
+        return matrix;
+    }
+
     CHAR_INFO GetColour(float lum)
     {
         short bg_col, fg_col;
@@ -247,7 +287,7 @@ public:
 public:
     bool OnUserCreate() override{
 
-        meshCube.loadFromObjectFile("teapot.obj");
+        meshCube.loadFromObjectFile("axis.obj");
 
         //Projection Matrix
         matProj = Matrix_MakeProjection(90.f, (float)ScreenHeight()/(float)ScreenWidth(), 0.1f, 1000.0f);
@@ -257,27 +297,70 @@ public:
 
 public:
     bool OnUserUpdate(float fElapsedTime) override {
+        if (GetKey(VK_UP).bHeld)
+            vCamera.y += 8.0f * fElapsedTime;
+
+        if (GetKey(VK_DOWN).bHeld)
+            vCamera.y -= 8.0f * fElapsedTime;   
+
+        if (GetKey(VK_RIGHT).bHeld)
+            vCamera.x += 8.0f * fElapsedTime;
+
+        if (GetKey(VK_LEFT).bHeld)
+            vCamera.x -= 8.0f * fElapsedTime;
+
+        Vec3d   vForward = Vector_Mul(vLookDir, 8.0f * fElapsedTime);
+
+        if (GetKey(L'W').bHeld)
+            vCamera = Vector_Add(vCamera, vForward);
+
+        if (GetKey(L'S').bHeld)
+            vCamera = Vector_Sub(vCamera, vForward);
+
+
+        if (GetKey(L'A').bHeld)
+            fYaw -= 2.0f * fElapsedTime;
+
+        if (GetKey(L'D').bHeld)
+            fYaw -= 2.0f * fElapsedTime;
+        
+        
+            
+      
+
+
         Fill(0, 0, ScreenWidth(), ScreenHeight(), PIXEL_SOLID, FG_BLACK);
 
         Mat4x4 matRotX, matRotZ;
-        fTheta += 1.0f * fElapsedTime;
+        //fTheta += 1.0f * fElapsedTime;
 
         matRotZ = Matrix_MakeRotationZ(fTheta);
         matRotX = Matrix_MakeRotationX(fTheta);
 
         Mat4x4 matTrans;
-        matTrans = Matrix_MakeTranslation(0.0f, 0.0f, 8.0f);
+        matTrans = Matrix_MakeTranslation(0.0f, 0.0f, 5.0f);
 
         Mat4x4 matWorld;
         matWorld = Matrix_MakeIdentity();
         matWorld = Matrix_MultiplyMatrix(matRotZ, matRotX);
         matWorld = Matrix_MultiplyMatrix(matWorld, matTrans);
 
+        Vec3d vUp = { 0, 1, 0 };
+        Vec3d vTarget = { 0, 0, 1 };
+        Mat4x4 matCameraRotY = Matrix_MakeRotationY(fYaw);
+        vLookDir = Matrix_MultiplyVector(matCameraRotY, vTarget);
+        vTarget = Vector_Add(vCamera, vLookDir);
+        
+        Mat4x4 matCamera = Matrix_PointAt(vCamera, vTarget, vUp);
+        Mat4x4 matView = Matrix_QuickInverse(matCamera);
+
+
         std::vector<Triangle> trianglesToRaster;
 
         //Draw Triangles 
         for (auto tri : meshCube.tris) {
-            Triangle triProjected, triTransformed;
+            Triangle triProjected, triTransformed, triViewed;
+
             triTransformed.p[0] = Matrix_MultiplyVector(matWorld, tri.p[0]);
             triTransformed.p[1] = Matrix_MultiplyVector(matWorld, tri.p[1]);
             triTransformed.p[2] = Matrix_MultiplyVector(matWorld, tri.p[2]);
@@ -291,23 +374,28 @@ public:
             
             Vec3d vCameraRay = Vector_Sub(triTransformed.p[0], vCamera);
 
-            if (Vector_DotProduct(vCameraRay, normal) < 0.0f)
+            if (Vector_DotProduct(normal, vCameraRay) < 0.0f)
             {   
                 //Illumination
-                Vec3d light_direction = { 0.0f, 0.0f, -0.1f };
+                Vec3d light_direction = { 0.0f, 0.1f, -0.1f };
                 light_direction = Vector_Normalise(light_direction);
 
 
-                float dotProduct = Vector_DotProduct(light_direction, normal);
+                float dotProduct = max(0.1f, Vector_DotProduct(light_direction, normal));
                 
                 CHAR_INFO c = GetColour(dotProduct);
                 triTransformed.col = c.Attributes;
                 triTransformed.sym = c.Char.UnicodeChar;
 
+                //World space to View Space
+                triViewed.p[0] = Matrix_MultiplyVector(matView, triTransformed.p[0]);
+                triViewed.p[1] = Matrix_MultiplyVector(matView, triTransformed.p[1]);
+                triViewed.p[2] = Matrix_MultiplyVector(matView, triTransformed.p[2]);
+
                 //3D to 2D
-                triProjected.p[0] = Matrix_MultiplyVector(matProj, triTransformed.p[0]);
-                triProjected.p[1] = Matrix_MultiplyVector(matProj, triTransformed.p[1]);
-                triProjected.p[2] = Matrix_MultiplyVector(matProj, triTransformed.p[2]);
+                triProjected.p[0] = Matrix_MultiplyVector(matProj, triViewed.p[0]);
+                triProjected.p[1] = Matrix_MultiplyVector(matProj, triViewed.p[1]);
+                triProjected.p[2] = Matrix_MultiplyVector(matProj, triViewed.p[2]);
 
                 triProjected.col = triTransformed.col;
                 triProjected.sym = triTransformed.sym;
@@ -315,6 +403,14 @@ public:
                 triProjected.p[0] = Vector_Div(triProjected.p[0], triProjected.p[0].w);
                 triProjected.p[1] = Vector_Div(triProjected.p[1], triProjected.p[1].w);
                 triProjected.p[2] = Vector_Div(triProjected.p[2], triProjected.p[2].w);
+
+                // X/Y are inverted so put them back
+                triProjected.p[0].x *= -1.0f;
+                triProjected.p[1].x *= -1.0f;
+                triProjected.p[2].x *= -1.0f;
+                triProjected.p[0].y *= -1.0f;
+                triProjected.p[1].y *= -1.0f;
+                triProjected.p[2].y *= -1.0f;
 
                 //Scale into view
                 Vec3d vOffsetView = { 1,1,0 };
@@ -351,7 +447,7 @@ public:
             /*DrawTriangle(triProjected.p[0].x, triProjected.p[0].y,
                 triProjected.p[1].x, triProjected.p[1].y,
                 triProjected.p[2].x, triProjected.p[2].y,
-                PIXEL_SOLID, FG_BLACK);*/
+                PIXEL_SOLID, FG_WHITE);*/
 
         }
         return true;
